@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "/home/ec2-user/datasets",
+  "weights_dir": "/home/ec2-user/tekiai/weights",
+  "runs_dir": "/home/ec2-user/tekiai/runs",
+  "uuid": "6b73607999d3ab1d894e5ce0d7ab8a7f2293af4211bad26f58b593d65637df98",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}
