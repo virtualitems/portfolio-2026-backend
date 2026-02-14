@@ -42,9 +42,14 @@ EXPOSE 80
 
 CMD ["python3.11", "-OO", "-m", "uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--lifespan", "off"]
 
+
+
 # docker build -t backend:latest .
 # docker rm -f backend
 # docker create --name backend -p 8000:80 --gpus all backend:latest
 # docker cp .env backend:/app/.env
+#
 # docker start backend
 # docker logs -f backend
+#
+# docker exec -it backend /bin/sh
