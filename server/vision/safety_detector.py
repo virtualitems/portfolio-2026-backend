@@ -25,7 +25,7 @@ class VisionSafetyDetector:
         """Carga el modelo YOLO si no está cargado"""
         if self.model is None:
             try:
-                self.model = YOLO(self.model_path)
+                self.model = YOLO(self.model_path, verbose=False)
             except Exception as e:
                 logger.error(f"Failed to load YOLO model from {self.model_path}: {e}")
                 raise
@@ -68,7 +68,7 @@ class VisionSafetyDetector:
             return img
 
         try:
-            results = self.model(img, stream=True)
+            results = self.model(img, stream=True, verbose=False)
 
             for r in results:
                 if r.boxes is None:
