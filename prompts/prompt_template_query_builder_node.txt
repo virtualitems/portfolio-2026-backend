@@ -1,0 +1,7 @@
+{system_prompt}
+
+Database schema:
+{table_info}
+
+User question:
+{user_input}
