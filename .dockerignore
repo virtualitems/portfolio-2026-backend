@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment
+.env
+.env.example
+.venv
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+database/
+
+# Storage (created at runtime)
+mediafiles/
+logs/
+
+# Model files
+*.pt
+*.pkl
+*.faiss
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Dev scripts
+dev.sh
+install.sh
+
+# Docs
+README.md
+
+# Ultralytics cache
+.ultralytics/
+
+# IDE
+.vscode/
+.idea/

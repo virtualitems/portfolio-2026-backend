@@ -28,9 +28,12 @@ COPY requirements.txt .
 
 RUN pip3.11 install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY server/ ./server/
+COPY prompts/ ./prompts/
+COPY staticfiles/ ./staticfiles/
+COPY vision/ ./vision/
 
-RUN mkdir -p mediafiles staticfiles prompts vision logs .ultralytics
+RUN mkdir -p mediafiles logs database .ultralytics
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
