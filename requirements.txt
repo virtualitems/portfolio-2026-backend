@@ -1,0 +1,16 @@
+email-validator
+faiss-gpu-cu12
+fastapi
+langchain-community
+langchain-core
+langchain-ollama
+numpy
+ollama
+opencv-python
+psycopg2-binary
+python-dotenv
+python-multipart
+redis
+sqlalchemy
+ultralytics
+uvicorn[standard]
