@@ -2,6 +2,10 @@ FROM ollama/ollama:latest
 
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /etc/systemd/system/ollama.service.d/
+
+COPY docker/ollama/override.conf /etc/systemd/system/ollama.service.d/override.conf
+
 RUN ollama serve & \
     sleep 10 && \
     echo "Descargando modelo mistral:7b..." && \
