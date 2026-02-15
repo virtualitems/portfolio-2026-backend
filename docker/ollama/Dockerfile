@@ -1,5 +1,7 @@
 FROM ollama/ollama:latest
 
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 RUN ollama serve & \
     sleep 10 && \
     echo "Descargando modelo mistral:7b..." && \
