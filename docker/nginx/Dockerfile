@@ -2,7 +2,7 @@ FROM nginx:latest
 
 RUN rm /etc/nginx/conf.d/default.conf
 
-COPY default.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 
 RUN mkdir -p /var/log/nginx/tekiai
 
