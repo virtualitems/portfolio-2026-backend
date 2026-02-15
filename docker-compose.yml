@@ -65,6 +65,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:80"
+    env_file:
+      - .env
     environment:
       REDIS_URL: redis://redis:6379/0
     depends_on:
