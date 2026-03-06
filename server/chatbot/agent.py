@@ -84,7 +84,7 @@ class ChatNode:
 
         except Exception as e:
             logger.error(f'Error in ChatNode streaming: {e}')
-            yield f'Lo siento, hubo un error al procesar tu mensaje: {str(e)}'
+            yield f'Sorry, an error occurred while processing your message: {str(e)}'
 
 class QueryBuilderNode:
     """Construye consultas SQL desde lenguaje natural"""
@@ -295,6 +295,7 @@ class ChatbotAgent:
                     messages.append(HumanMessage(content=user_input))
 
                     sql_query = await self.query_builder_node.build_query(user_input)
+                    print(sql_query)
 
                     query_results = await self.query_executor_node.execute_query(sql_query)
 
@@ -303,12 +304,14 @@ class ChatbotAgent:
 
                     interpreter_context = self.sql_interpreter_prompt_template.format(
                         question=user_input,
-                        data=query_results
+                        data=query_results,
+                        sql_query=sql_query
                     )
 
                     temp_messages = [
                         messages[0],
-                        HumanMessage(content=interpreter_context)
+                        SystemMessage(content=interpreter_context),
+                        HumanMessage(content=user_input)
                     ]
 
                     full_response = ''
@@ -321,7 +324,7 @@ class ChatbotAgent:
 
                 except Exception as e:
                     logger.error(f'Error in SQL flow: {e}')
-                    error_message = f'Lo siento, hubo un error al procesar tu consulta a la base de datos: {str(e)}'
+                    error_message = f'Sorry, an error occurred while querying the database: {str(e)}'
                     messages.append(AIMessage(content=error_message))
                     yield error_message
 
@@ -333,7 +336,7 @@ class ChatbotAgent:
 
         except Exception as e:
             logger.error(f'Error in agent invocation: {str(e)}')
-            yield f'Lo siento, hubo un error al procesar tu mensaje: {str(e)}'
+            yield f'Sorry, an error occurred while processing your message: {str(e)}'
 
     def get_history(self, session_id: str = 'default') -> List[Any]:
         """Obtiene historial de una sesión"""

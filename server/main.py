@@ -3,7 +3,7 @@ import os
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Form, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse, FileResponse
 
 from .shared.logger import get_logger
 from .vision.safety_detector import safety_detector
@@ -33,6 +33,28 @@ app.add_middleware(
 
 app.include_router(persons_router)
 app.include_router(reports_router)
+
+@app.get('/')
+async def root():
+    """
+    Serve the main index.html file
+    """
+    static_dir = env.get('STATIC_FILES_DIR_PATH', '/home/ec2-user/demo.alejandrocr.co/staticfiles')
+    index_path = os.path.join(static_dir, 'index.html')
+    return FileResponse(index_path)
+
+@app.get('/assets/{path:path}')
+async def serve_assets(path: str):
+    """
+    Serve static assets from the assets directory
+    """
+    static_dir = env.get('STATIC_FILES_DIR_PATH', '/home/ec2-user/demo.alejandrocr.co/staticfiles')
+    file_path = os.path.join(static_dir, 'assets', path)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    return FileResponse(file_path)
 
 @app.get('/health')
 async def health():
@@ -167,3 +189,16 @@ async def stream_safety_detection(websocket: WebSocket):
             await websocket.close()
         except:
             pass
+
+@app.get('/{filename}')
+async def serve_static_file(filename: str):
+    """
+    Serve static files (images, etc.) from the staticfiles root directory
+    """
+    static_dir = env.get('STATIC_FILES_DIR_PATH', '/home/ec2-user/demo.alejandrocr.co/staticfiles')
+    file_path = os.path.join(static_dir, filename)
+
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    return FileResponse(file_path)
