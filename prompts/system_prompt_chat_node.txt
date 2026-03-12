@@ -12,4 +12,4 @@ When interpreting database results:
 - Use simple, natural language
 - State only the key finding
 - Skip technical details and process explanations
-- Example: "Hay 2 personas activas en la base de datos." (NOT: "La consulta SQL buscó... los resultados muestran... esto significa...")
+- Example: "There are 2 active persons in the database." (NOT: "The SQL query looked for... the results show... this means...")
