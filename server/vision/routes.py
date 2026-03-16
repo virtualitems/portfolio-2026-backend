@@ -4,7 +4,7 @@ from ..shared.logger import get_logger
 from .safety_detector import safety_detector
 
 logger = get_logger(__name__)
-router = APIRouter(prefix='/ws/vision', tags=['vision'])
+router = APIRouter(prefix='/vision', tags=['vision'])
 
 
 @router.websocket('/stream-safety')
