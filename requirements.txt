@@ -1,6 +1,7 @@
 email-validator
 faiss-gpu-cu12
 fastapi
+hypercorn
 langchain-community
 langchain-core
 langchain-ollama
@@ -13,4 +14,3 @@ python-multipart
 redis
 sqlalchemy
 ultralytics
-uvicorn[standard]
