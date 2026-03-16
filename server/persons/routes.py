@@ -3,7 +3,7 @@ CRUD endpoints para la gestión de personas.
 """
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -52,7 +52,7 @@ async def get_persons(db: Session = Depends(get_db)):
         return {"data": [person.to_dict() for person in persons]}
     except Exception as e:
         logger.error(f"Error getting persons: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.get('/{person_id}', response_model=SinglePersonResponse)
@@ -67,17 +67,17 @@ async def get_person(person_id: int, db: Session = Depends(get_db)):
         ).first()
 
         if not person:
-            raise HTTPException(status_code=404, detail="Person not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
 
         return {"data": person.to_dict()}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting person {person_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.post('', status_code=204)
+@router.post('', status_code=status.HTTP_201_CREATED)
 async def create_person(person: PersonCreate, db: Session = Depends(get_db)):
     """
     Crea una nueva persona.
@@ -89,19 +89,18 @@ async def create_person(person: PersonCreate, db: Session = Depends(get_db)):
         )
         db.add(db_person)
         db.commit()
-
-        return None
+        return Response(status_code=status.HTTP_201_CREATED)
     except IntegrityError as e:
         db.rollback()
         logger.error(f"Error creating person: {e}")
-        raise HTTPException(status_code=400, detail="Email already exists")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating person: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.put('/{person_id}', status_code=204)
+@router.put('/{person_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def update_person(person_id: int, person: PersonUpdate, db: Session = Depends(get_db)):
     """
     Actualiza una persona existente.
@@ -113,10 +112,10 @@ async def update_person(person_id: int, person: PersonUpdate, db: Session = Depe
         ).first()
 
         if not db_person:
-            raise HTTPException(status_code=404, detail="Person not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
 
         if person.name is None and person.email is None:
-            raise HTTPException(status_code=400, detail="No fields to update")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
         if person.name is not None:
             db_person.name = person.name
@@ -133,14 +132,14 @@ async def update_person(person_id: int, person: PersonUpdate, db: Session = Depe
     except IntegrityError as e:
         db.rollback()
         logger.error(f"Error updating person {person_id}: {e}")
-        raise HTTPException(status_code=400, detail="Email already exists")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
     except Exception as e:
         db.rollback()
         logger.error(f"Error updating person {person_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.delete('/{person_id}', status_code=204)
+@router.delete('/{person_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_person(person_id: int, db: Session = Depends(get_db)):
     """
     Realiza un borrado lógico de una persona (soft delete).
@@ -152,7 +151,7 @@ async def delete_person(person_id: int, db: Session = Depends(get_db)):
         ).first()
 
         if not db_person:
-            raise HTTPException(status_code=404, detail="Person not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
 
         db_person.deleted_at = datetime.utcnow()
         db.commit()
@@ -163,4 +162,4 @@ async def delete_person(person_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         logger.error(f"Error deleting person {person_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
