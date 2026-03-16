@@ -3,7 +3,7 @@ CRUD endpoints para la gestión de reportes.
 """
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Form, UploadFile, File, Depends
+from fastapi import APIRouter, HTTPException, Form, UploadFile, File, Depends, status, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -77,7 +77,7 @@ async def get_reports(person_id: Optional[int] = None, db: Session = Depends(get
         return {"data": reports_data}
     except Exception as e:
         logger.error(f"Error getting reports: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.get('/{report_id}', response_model=SingleReportResponse)
@@ -96,7 +96,7 @@ async def get_report(report_id: int, db: Session = Depends(get_db)):
         ).first()
 
         if not result:
-            raise HTTPException(status_code=404, detail="Report not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
 
         report, person = result
         base_url = env.get('BASE_URL', '').rstrip('/')
@@ -116,10 +116,10 @@ async def get_report(report_id: int, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error getting report {report_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.post('', status_code=204)
+@router.post('', status_code=status.HTTP_201_CREATED)
 async def create_report(
     person_id: int = Form(...),
     observations: str = Form(""),
@@ -134,7 +134,7 @@ async def create_report(
     try:
 
         if not evidence:
-            raise HTTPException(status_code=400, detail="Evidence is required")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Evidence is required")
 
         person = db.query(Person).filter(
             Person.id == person_id,
@@ -142,13 +142,13 @@ async def create_report(
         ).first()
 
         if not person:
-            raise HTTPException(status_code=404, detail="Person not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
 
         try:
             image_data = await evidence.read()
 
             if not image_data or len(image_data) == 0:
-                raise HTTPException(status_code=400, detail="Evidence cannot be blank")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Evidence cannot be blank")
 
             extension = evidence.content_type.split('/')[-1]
 
@@ -159,11 +159,11 @@ async def create_report(
                 extension=extension
             )
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid image data: {str(e)}")
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error saving image: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error saving image: {str(e)}")
 
         db_report = Report(
             person_id=person_id,
@@ -173,16 +173,16 @@ async def create_report(
         db.add(db_report)
         db.commit()
 
-        return None
+        return Response(status_code=status.HTTP_201_CREATED)
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating report: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.delete('/{report_id}', status_code=204)
+@router.delete('/{report_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_report(report_id: int, db: Session = Depends(get_db)):
     """
     Realiza un borrado lógico de un reporte (soft delete).
@@ -195,7 +195,7 @@ async def delete_report(report_id: int, db: Session = Depends(get_db)):
         ).first()
 
         if not db_report:
-            raise HTTPException(status_code=404, detail="Report not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
 
         db_report.deleted_at = datetime.utcnow()
         db.commit()
@@ -212,4 +212,4 @@ async def delete_report(report_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         logger.error(f"Error deleting report {report_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
