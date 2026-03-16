@@ -100,7 +100,7 @@ async def create_person(person: PersonCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.put('/{person_id}', status_code=status.HTTP_204_NO_CONTENT)
+@router.patch('/{person_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def update_person(person_id: int, person: PersonUpdate, db: Session = Depends(get_db)):
     """
     Actualiza una persona existente.
