@@ -15,6 +15,12 @@ async def serve_media_file(filename: str, request: Request):
     """
     Endpoint para servir archivos mediante X-Accel-Redirect.
     """
+
+    media_header = request.headers.get('X-Access-Media')  # example
+
+    if media_header is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     try:
         base_path = env.get('MEDIA_FILES_DIR_PATH')
         file_path = os.path.join(base_path, filename)
