@@ -1,9 +1,8 @@
 import faiss
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
 
 from .shared.logger import get_logger
 from .persons.routes import router as persons_router
@@ -33,6 +32,6 @@ app.include_router(chatbot_router)
 app.include_router(vision_router)
 app.include_router(media_router)
 
-@app.get('api/health')
-async def health():
-    return Response(status_code=200, content=f'OK {gpu_available}G {cpu_available}C')
+@app.get('/api/health', status_code=status.HTTP_204_NO_CONTENT)
+async def health_check():
+    """Endpoint to check the health of the server"""
