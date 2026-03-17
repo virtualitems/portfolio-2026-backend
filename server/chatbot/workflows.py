@@ -69,6 +69,7 @@ query_builder_llm = ChatOllama(
 router_system_prompt = read_text_file(env['ROUTER_NODE_SYSTEM_PROMPT_PATH'])
 query_builder_system_prompt = read_text_file(env['QUERY_BUILDER_NODE_SYSTEM_PROMPT_PATH'])
 query_builder_prompt_template = read_text_file(env['QUERY_BUILDER_PROMPT_TEMPLATE_PATH'])
+chat_node_system_prompt = read_text_file(env['CHAT_NODE_SYSTEM_PROMPT_PATH'])
 sql_interpreter_prompt_template = read_text_file(env['SQL_INTERPRETER_PROMPT_TEMPLATE_PATH'])
 global_system_prompt = read_text_file(env['GLOBAL_SYSTEM_PROMPT_PATH'])
 
@@ -83,7 +84,10 @@ router_node = RouterNode(
 
 offside_node = OffsideNode()
 
-chat_node = ChatNode(llm=chat_llm)
+chat_node = ChatNode(
+    llm=chat_llm,
+    system_prompt=chat_node_system_prompt
+)
 
 query_builder_node = QueryBuilderNode(
     llm=query_builder_llm,

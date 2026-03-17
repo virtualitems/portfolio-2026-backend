@@ -77,8 +77,9 @@ class ChatNode(BaseRunnableStreamNode):
     Nodo para conversación general con el modelo.
     """
 
-    def __init__(self, llm: ChatOllama):
+    def __init__(self, llm: ChatOllama, system_prompt: str = ""):
         self.llm = llm
+        self.system_prompt = system_prompt
 
     async def run_stream(self, user_input: str, messages: List[Any]) -> AsyncIterator[str]:
         """
@@ -94,9 +95,13 @@ class ChatNode(BaseRunnableStreamNode):
         try:
             messages.append(HumanMessage(content=user_input))
 
+            model_messages = messages
+            if self.system_prompt:
+                model_messages = [SystemMessage(content=self.system_prompt)] + messages
+
             full_response = ''
 
-            async for chunk in self.llm.astream(messages):
+            async for chunk in self.llm.astream(model_messages):
                 if hasattr(chunk, 'content') and chunk.content:
                     full_response += chunk.content
                     yield chunk.content
