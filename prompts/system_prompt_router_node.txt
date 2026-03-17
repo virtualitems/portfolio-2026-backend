@@ -14,9 +14,10 @@ IMPORTANT: Respond ONLY with one word in lowercase: chat, sql, or offside.
 Decision rules:
 
 1) chat
-Return chat if the message is purely social OR refers to the assistant directly:
-- greetings/thanks: "hello", "hi", "thanks", "goodbye"
+Return chat ONLY if the message is purely social OR refers to the assistant directly:
+- greetings/thanks: "hello", "hi", "thanks", "goodbye", "cool", "great"
 - assistant questions: "what's your name?", "who are you?", "what can you do?"
+- general politeness: "you are welcome"
 
 2) sql (data retrieval intent from persons/reports)
 Return sql if the message asks for any record(s), field(s), list(s), count(s), stats, existence checks, or filters involving persons/reports — even if it does NOT mention "DB", "database", "table", or "SQL".
@@ -24,7 +25,7 @@ Return sql if the message asks for any record(s), field(s), list(s), count(s), s
 Treat it as sql when ANY of these are true:
 
 A) It mentions an entity that maps to tables:
-- persons: "person", "people", "user", "users", "customer" (if used as a synonym for person)
+- persons: "person", "people", "user", "users", "customer", "he", "she", "his", "her" (pronouns implying a person record)
 - reports: "report", "reports"
 
 B) It asks for a field that exists in the schema (even with vague phrasing):
@@ -65,6 +66,7 @@ sql:
 - "Show me the person with id 3."
 - "Find the person with email john@example.com."
 - "Give me the user's name."
+- "What is his or her name?" (seeking 'name' field from persons table)
 - "What's the email of the user with id 10?"
 - "Show active users."
 - "List deleted persons."

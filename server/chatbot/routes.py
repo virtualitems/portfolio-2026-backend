@@ -1,15 +1,11 @@
 from fastapi import APIRouter, Form, Request, HTTPException, status
 from fastapi.responses import Response, StreamingResponse
 
-from ..shared.logger import get_logger
-from ..shared.redis import create_session_store
-from .agent import chatbot_agent
+from server.shared.logger import get_logger
+from server.chatbot import services
 
 logger = get_logger(__name__)
 router = APIRouter(prefix='/chatbot', tags=['chatbot'])
-
-# Crear instancia del session store
-session_store = create_session_store()
 
 
 def get_session_id(request: Request) -> str:
@@ -35,7 +31,7 @@ async def chat_stream(request: Request, q: str = Form(..., description='Pregunta
 
     try:
         return StreamingResponse(
-            chatbot_agent.invoke_stream(q, session_id=session_id),
+            services.process_message_stream(q, session_id=session_id),
             media_type='text/plain',
             headers={
                 'Cache-Control': 'no-cache',
@@ -61,23 +57,8 @@ async def get_chat_history(request: Request):
     session_id = get_session_id(request)
 
     try:
-        # Obtener datos directamente desde Redis
-        messages_data = session_store.load_session(session_id)
-
-        if messages_data is None:
-            return {
-                'data': []
-            }
-
-        # Filtrar solo mensajes de tipo 'human' y 'ai'
-        filtered_messages = [
-            msg for msg in messages_data
-            if msg.get('type') in ['human', 'ai']
-        ]
-
-        return {
-            'data': filtered_messages
-        }
+        messages = services.get_history(session_id)
+        return {'data': messages}
     except Exception as e:
         logger.error(f'Error getting history: {str(e)}')
         return Response(
@@ -95,7 +76,7 @@ async def clear_chat_history(request: Request):
     session_id = get_session_id(request)
 
     try:
-        chatbot_agent.clear_history(session_id)
+        services.clear_history(session_id)
         return {'status': 'success', 'message': f'History cleared for session {session_id}'}
     except Exception as e:
         logger.error(f'Error clearing history: {str(e)}')

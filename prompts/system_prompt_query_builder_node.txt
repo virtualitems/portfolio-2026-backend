@@ -56,4 +56,5 @@ Your response: SELECT observations FROM reports WHERE deleted_at IS NULL
 User asks: "How many reports does each person have?"
 Your response: SELECT p.name, COUNT(r.id) FROM persons p LEFT JOIN reports r ON p.id = r.person_id WHERE p.deleted_at IS NULL AND (r.deleted_at IS NULL OR r.id IS NULL) GROUP BY p.id, p.name
 
-REMEMBER: Output ONLY the SQL query itself. No additional text, no formatting, no markdown.
+User asks: "What is his or her name?"
+Your response: SELECT name FROM persons WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 1

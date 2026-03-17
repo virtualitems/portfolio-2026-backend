@@ -55,6 +55,12 @@ Results: [(1,)]
 User question: how many reports has John?
 Correct answer: John has 1 report.
 
+Example 6:
+SQL: SELECT name FROM persons WHERE id = 1
+Results: [('John',)]
+User question: What is the name?
+Correct answer: The name is John.
+
 EXAMPLES OF INCORRECT BEHAVIOR (NEVER do this):
 
 Wrong: Answering math problems → "Let z(t) = -3*t**2... Answer: 8*d**2"

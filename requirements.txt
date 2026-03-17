@@ -5,6 +5,7 @@ hypercorn
 langchain-community
 langchain-core
 langchain-ollama
+langgraph
 numpy
 ollama
 opencv-python
