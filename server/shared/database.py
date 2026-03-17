@@ -51,7 +51,7 @@ class SupabaseDatabase:
         """
         return (
             f"postgresql+psycopg2://{self._db_user}:{self._db_password}"
-            f"@{self._db_host}:{self._db_port}/{self._db_name}?sslmode=require"
+            f"@{self._db_host}:{self._db_port}/{self._db_name}?sslmode=disable"
         )
 
     def _create_engine(self) -> Engine:
