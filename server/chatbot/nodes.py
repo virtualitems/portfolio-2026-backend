@@ -42,7 +42,6 @@ class RouterNode(BaseRunnableAgentNode):
 
             response = await self.llm.ainvoke(messages)
             route = response.content.strip().lower().strip('"').strip("'")
-            print(route)
 
             if route not in ['offside', 'chat', 'sql']:
                 logger.warning(f'Router returned unexpected value: "{route}", defaulting to "chat"')
@@ -155,7 +154,6 @@ class QueryBuilderNode(BaseRunnableAgentNode):
                 query = query.replace('```sql', '').replace('```', '').strip()
             elif query.startswith('```'):
                 query = query.replace('```', '').strip()
-            print(f'Query after markdown cleanup: "{query}"')
 
             if not query:
                 error_msg = f'El modelo QueryBuilder devolvió una respuesta vacía. Respuesta original: "{response.content}"'

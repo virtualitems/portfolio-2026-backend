@@ -280,7 +280,6 @@ class ChatbotAgent:
             messages = self._get_session_messages(session_id)
 
             route = await self.router_node.route(user_input)
-            print(route)
 
             if route == 'offside':
                 messages.append(HumanMessage(content=user_input))
@@ -295,7 +294,6 @@ class ChatbotAgent:
                     messages.append(HumanMessage(content=user_input))
 
                     sql_query = await self.query_builder_node.build_query(user_input)
-                    print(sql_query)
 
                     query_results = await self.query_executor_node.execute_query(sql_query)
 
