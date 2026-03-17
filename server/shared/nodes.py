@@ -11,9 +11,8 @@ class BaseAgentNode(ABC):
     Nodo base para los agentes.
     """
 
-    def __init__(self, llm: ChatOllama, system_prompt: Union[None, str] = None):
+    def __init__(self, llm: ChatOllama, *args, **kwargs):
         self.llm = llm
-        self.system_prompt = system_prompt or ''
 
 
 class BaseRunnableAgentNode(BaseAgentNode):
@@ -21,7 +20,7 @@ class BaseRunnableAgentNode(BaseAgentNode):
     Nodo que puede procesar un input y generar una respuesta.
     """
     @abstractmethod
-    async def run(self, input_text: str) -> str:
+    async def run(self, *args, **kwargs) -> str:
         """
         Procesa el input y retorna la respuesta.
         """
@@ -32,7 +31,7 @@ class BaseRunnableStreamAgentNode(BaseAgentNode):
     Nodo que puede procesar un input y generar una respuesta en streaming.
     """
     @abstractmethod
-    async def run_stream(self, input_text: str) -> AsyncIterator[str]:
+    async def run_stream(self, *args, **kwargs) -> AsyncIterator[str]:
         """
         Procesa el input y retorna la respuesta como un stream de texto.
         """
@@ -44,7 +43,7 @@ class BaseRunnableNode:
     Nodo que puede procesar un input y generar una respuesta.
     """
     @abstractmethod
-    async def run(self) -> str:
+    async def run(self, *args, **kwargs) -> str:
         """
         Procesa el input y retorna la respuesta.
         """
@@ -55,7 +54,7 @@ class BaseRunnableStreamNode:
     Nodo que puede procesar un input y generar una respuesta en streaming.
     """
     @abstractmethod
-    async def run_stream(self) -> AsyncIterator[str]:
+    async def run_stream(self, *args, **kwargs) -> AsyncIterator[str]:
         """
         Procesa el input y retorna la respuesta como un stream de texto.
         """
