@@ -3,9 +3,13 @@ Nodos especializados para el chatbot.
 Cada nodo hereda de las clases base en shared/nodes.py
 """
 from typing import AsyncIterator, List, Any
+import os
+import pickle
 
+import faiss
+import numpy as np
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain_ollama import ChatOllama
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_community.utilities import SQLDatabase
 
 from server.shared.logger import get_logger
@@ -17,7 +21,7 @@ logger = get_logger(__name__)
 class RouterNode(BaseRunnableAgentNode):
     """
     Clasifica la intención del usuario y determina la ruta a seguir.
-    Opciones: 'offside', 'chat', 'sql'
+    Opciones: 'offside', 'chat', 'sql', 'rag'
     """
 
     def __init__(self, llm: ChatOllama, system_prompt: str):
@@ -32,7 +36,7 @@ class RouterNode(BaseRunnableAgentNode):
             user_input: Pregunta del usuario
 
         Returns:
-            str: Una de las siguientes opciones: 'offside', 'chat', 'sql'
+            str: Una de las siguientes opciones: 'offside', 'chat', 'sql', 'rag'
         """
         try:
             messages = [
@@ -43,7 +47,7 @@ class RouterNode(BaseRunnableAgentNode):
             response = await self.llm.ainvoke(messages)
             route = response.content.strip().lower().strip('"').strip("'")
 
-            if route not in ['offside', 'chat', 'sql']:
+            if route not in ['offside', 'chat', 'sql', 'rag']:
                 logger.warning(f'Router returned unexpected value: "{route}", defaulting to "chat"')
                 return 'chat'
 
@@ -261,3 +265,154 @@ class SQLInterpreterNode(BaseRunnableStreamNode):
         except Exception as e:
             logger.error(f'Error in SQLInterpreterNode: {e}')
             yield f'Sorry, an error occurred while interpreting the results: {str(e)}'
+
+
+class RAGRetrievalNode(BaseRunnableAgentNode):
+    """
+    Nodo que genera query de búsqueda optimizada y recupera documentos relevantes.
+    """
+
+    def __init__(
+        self,
+        llm: ChatOllama,
+        embeddings: OllamaEmbeddings,
+        index_path: str,
+        metadata_path: str,
+        system_prompt: str,
+        top_k: int = 3
+    ):
+        super().__init__(llm)
+        self.embeddings = embeddings
+        self.system_prompt = system_prompt
+        self.top_k = top_k
+
+        # Cargar índice FAISS y metadatos
+        if not os.path.exists(index_path):
+            raise FileNotFoundError(f'FAISS index not found at {index_path}')
+
+        if not os.path.exists(metadata_path):
+            raise FileNotFoundError(f'Metadata file not found at {metadata_path}')
+
+        self.index = faiss.read_index(index_path)
+
+        with open(metadata_path, 'rb') as f:
+            self.metadata = pickle.load(f)
+
+        logger.info(f'RAG index loaded: {self.index.ntotal} vectors, dimension {self.metadata["dimension"]}')
+
+    async def run(self, user_input: str) -> dict:
+        """
+        Genera query de búsqueda y recupera documentos relevantes.
+
+        Args:
+            user_input: Pregunta del usuario
+
+        Returns:
+            dict: Contiene 'search_query' y 'retrieved_docs' (lista de documentos)
+        """
+        try:
+            # Generar query de búsqueda optimizada
+            messages = [
+                SystemMessage(content=self.system_prompt),
+                HumanMessage(content=user_input)
+            ]
+
+            response = await self.llm.ainvoke(messages)
+            search_query = response.content.strip()
+
+            logger.info(f'Generated search query: "{search_query}"')
+
+            # Generar embedding para el query
+            query_embedding = self.embeddings.embed_query(search_query)
+            query_vector = np.array([query_embedding], dtype=np.float32)
+
+            # Normalizar para cosine similarity (índice usa Inner Product)
+            faiss.normalize_L2(query_vector)
+
+            # Buscar en el índice FAISS
+            distances, indices = self.index.search(query_vector, self.top_k)
+
+            # Recuperar documentos
+            retrieved_docs = []
+            for idx, distance in zip(indices[0], distances[0]):
+                if idx < len(self.metadata['documents']):
+                    doc = self.metadata['documents'][idx]
+                    retrieved_docs.append({
+                        'content': doc['content'],
+                        'metadata': doc['metadata'],
+                        'score': float(distance)
+                    })
+
+            logger.info(f'Retrieved {len(retrieved_docs)} documents')
+
+            return {
+                'search_query': search_query,
+                'retrieved_docs': retrieved_docs
+            }
+
+        except Exception as e:
+            logger.error(f'Error in RAGRetrievalNode: {e}')
+            raise Exception(f'Error retrieving documents: {str(e)}')
+
+
+class RAGInterpreterNode(BaseRunnableStreamNode):
+    """
+    Interpreta documentos recuperados y genera respuesta en lenguaje natural.
+    """
+
+    def __init__(self, llm: ChatOllama, prompt_template: str, system_prompt: str):
+        self.llm = llm
+        self.prompt_template = prompt_template
+        self.system_prompt = system_prompt
+
+    async def run_stream(
+        self,
+        user_input: str,
+        search_query: str,
+        retrieved_docs: List[dict]
+    ) -> AsyncIterator[str]:
+        """
+        Interpreta documentos y genera respuesta en streaming.
+
+        Args:
+            user_input: Pregunta original del usuario
+            search_query: Query de búsqueda generada
+            retrieved_docs: Lista de documentos recuperados
+
+        Yields:
+            str: Fragmentos de la respuesta
+        """
+        try:
+            # Formatear contexto de los documentos recuperados
+            if not retrieved_docs:
+                context = 'No relevant documents found in the knowledge base.'
+            else:
+                context_parts = []
+                for i, doc in enumerate(retrieved_docs, 1):
+                    score = doc.get('score', 0)
+                    content = doc['content']
+                    context_parts.append(f'[Document {i}] (relevance: {score:.3f})\n{content}')
+
+                context = '\n\n---\n\n'.join(context_parts)
+
+            # Construir prompt para interpretación
+            interpreter_context = self.prompt_template.format(
+                question=user_input,
+                context=context,
+                search_query=search_query
+            )
+
+            messages = [
+                SystemMessage(content=self.system_prompt),
+                SystemMessage(content=interpreter_context),
+                HumanMessage(content=user_input)
+            ]
+
+            # Generar respuesta en streaming
+            async for chunk in self.llm.astream(messages):
+                if hasattr(chunk, 'content') and chunk.content:
+                    yield chunk.content
+
+        except Exception as e:
+            logger.error(f'Error in RAGInterpreterNode: {e}')
+            yield f'Sorry, an error occurred while processing the documents: {str(e)}'
