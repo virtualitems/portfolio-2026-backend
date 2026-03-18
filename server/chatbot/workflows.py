@@ -4,9 +4,10 @@ Orquesta la ejecución de nodos mediante un StateGraph.
 """
 from typing import AsyncIterator, List, Any, TypedDict, Literal, Optional
 import asyncio
+import os
 
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain_ollama import ChatOllama
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langgraph.graph import StateGraph, END
 
 from server.shared.logger import get_logger
@@ -20,7 +21,9 @@ from server.chatbot.nodes import (
     ChatNode,
     QueryBuilderNode,
     QueryExecutorNode,
-    SQLInterpreterNode
+    SQLInterpreterNode,
+    RAGRetrievalNode,
+    RAGInterpreterNode
 )
 
 logger = get_logger(__name__)
@@ -37,6 +40,8 @@ class ChatbotState(TypedDict):
     route: str
     sql_query: str
     query_results: str
+    rag_search_query: str
+    rag_retrieved_docs: List[dict]
     response_chunks: List[str]  # Para almacenar chunks de streaming
     error: Optional[str]
 
@@ -62,6 +67,18 @@ query_builder_llm = ChatOllama(
     base_url=env['OLLAMA_BASE_URL'],
 )
 
+rag_retrieval_llm = ChatOllama(
+    model=env.get('RAG_RETRIEVAL_LLM_MODEL_NAME', env['QUERY_BUILDER_LLM_MODEL_NAME']),
+    temperature=float(env.get('RAG_RETRIEVAL_TEMPERATURE', '0.0')),
+    base_url=env['OLLAMA_BASE_URL'],
+)
+
+# Modelo de embeddings para RAG
+embeddings_model = OllamaEmbeddings(
+    model=env['EMBEDDINGS_MODEL_NAME'],
+    base_url=env['OLLAMA_BASE_URL']
+)
+
 # ============================================================================
 # Carga de prompts del sistema
 # ============================================================================
@@ -72,6 +89,17 @@ query_builder_prompt_template = read_text_file(env['QUERY_BUILDER_PROMPT_TEMPLAT
 chat_node_system_prompt = read_text_file(env['CHAT_NODE_SYSTEM_PROMPT_PATH'])
 sql_interpreter_prompt_template = read_text_file(env['SQL_INTERPRETER_PROMPT_TEMPLATE_PATH'])
 global_system_prompt = read_text_file(env['GLOBAL_SYSTEM_PROMPT_PATH'])
+
+# Prompts para RAG
+rag_retrieval_system_prompt = read_text_file(
+    env.get('RAG_RETRIEVAL_SYSTEM_PROMPT_PATH', 'prompts/system_prompt_rag_retrieval_node.txt')
+)
+rag_interpreter_system_prompt = read_text_file(
+    env.get('RAG_INTERPRETER_SYSTEM_PROMPT_PATH', 'prompts/system_prompt_rag_interpreter_node.txt')
+)
+rag_interpreter_prompt_template = read_text_file(
+    env.get('RAG_INTERPRETER_PROMPT_TEMPLATE_PATH', 'prompts/prompt_template_rag_interpreter_node.txt')
+)
 
 # ============================================================================
 # Instanciación de nodos
@@ -102,6 +130,22 @@ sql_interpreter_node = SQLInterpreterNode(
     llm=chat_llm,
     prompt_template=sql_interpreter_prompt_template,
     system_message=SystemMessage(content=global_system_prompt)
+)
+
+# Nodos RAG
+rag_retrieval_node = RAGRetrievalNode(
+    llm=rag_retrieval_llm,
+    embeddings=embeddings_model,
+    index_path=os.path.join(env['DATABASE_EMBEDDINGS_DIR_PATH'], 'index.faiss'),
+    metadata_path=os.path.join(env['DATABASE_EMBEDDINGS_DIR_PATH'], 'index.pkl'),
+    system_prompt=rag_retrieval_system_prompt,
+    top_k=int(env.get('RAG_TOP_K', '3'))
+)
+
+rag_interpreter_node = RAGInterpreterNode(
+    llm=chat_llm,
+    prompt_template=rag_interpreter_prompt_template,
+    system_prompt=rag_interpreter_system_prompt
 )
 
 # ============================================================================
@@ -202,7 +246,49 @@ async def interpret_sql_results(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def route_by_classification(state: ChatbotState) -> Literal["offside", "chat", "sql"]:
+async def retrieve_rag_documents(state: ChatbotState) -> ChatbotState:
+    """Nodo que recupera documentos relevantes para RAG."""
+    try:
+        state['messages'].append(HumanMessage(content=state['user_input']))
+
+        result = await rag_retrieval_node.run(state['user_input'])
+
+        state['rag_search_query'] = result['search_query']
+        state['rag_retrieved_docs'] = result['retrieved_docs']
+
+        logger.info(f'RAG retrieval successful: {len(result["retrieved_docs"])} docs')
+    except Exception as e:
+        logger.error(f'Error in retrieve_rag_documents: {e}')
+        state['error'] = str(e)
+        state['rag_search_query'] = ''
+        state['rag_retrieved_docs'] = []
+    return state
+
+
+async def interpret_rag_documents(state: ChatbotState) -> ChatbotState:
+    """Nodo que interpreta documentos RAG."""
+    try:
+        response_chunks = []
+        async for chunk in rag_interpreter_node.run_stream(
+            user_input=state['user_input'],
+            search_query=state['rag_search_query'],
+            retrieved_docs=state['rag_retrieved_docs']
+        ):
+            response_chunks.append(chunk)
+
+        full_response = ''.join(response_chunks)
+        state['response_chunks'] = response_chunks
+        state['messages'].append(AIMessage(content=full_response))
+    except Exception as e:
+        logger.error(f'Error in interpret_rag_documents: {e}')
+        state['error'] = str(e)
+        error_message = f'Sorry, an error occurred while processing the documents: {str(e)}'
+        state['response_chunks'] = [error_message]
+        state['messages'].append(AIMessage(content=error_message))
+    return state
+
+
+def route_by_classification(state: ChatbotState) -> Literal["offside", "chat", "sql", "rag"]:
     """Función de enrutamiento condicional basada en la clasificación."""
     return state['route']
 
@@ -224,6 +310,8 @@ def build_chatbot_graph() -> StateGraph:
     workflow.add_node("build_sql_query", build_sql_query)
     workflow.add_node("execute_sql_query", execute_sql_query)
     workflow.add_node("interpret_sql_results", interpret_sql_results)
+    workflow.add_node("retrieve_rag_documents", retrieve_rag_documents)
+    workflow.add_node("interpret_rag_documents", interpret_rag_documents)
 
     # Definir el punto de entrada
     workflow.set_entry_point("route_input")
@@ -235,7 +323,8 @@ def build_chatbot_graph() -> StateGraph:
         {
             "offside": "handle_offside",
             "chat": "handle_chat",
-            "sql": "build_sql_query"
+            "sql": "build_sql_query",
+            "rag": "retrieve_rag_documents"
         }
     )
 
@@ -243,10 +332,14 @@ def build_chatbot_graph() -> StateGraph:
     workflow.add_edge("build_sql_query", "execute_sql_query")
     workflow.add_edge("execute_sql_query", "interpret_sql_results")
 
+    # Agregar bordes para el flujo RAG
+    workflow.add_edge("retrieve_rag_documents", "interpret_rag_documents")
+
     # Todos los nodos finales van a END
     workflow.add_edge("handle_offside", END)
     workflow.add_edge("handle_chat", END)
     workflow.add_edge("interpret_sql_results", END)
+    workflow.add_edge("interpret_rag_documents", END)
 
     return workflow.compile()
 
@@ -286,6 +379,8 @@ async def chatbot_workflow(
             'route': '',
             'sql_query': '',
             'query_results': '',
+            'rag_search_query': '',
+            'rag_retrieved_docs': [],
             'response_chunks': [],
             'error': None
         }
