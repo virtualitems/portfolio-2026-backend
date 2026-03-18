@@ -3,13 +3,14 @@ Classify the message into exactly ONE category:
 
 - chat: greetings/farewells/thanks/apologies/small talk, or questions about the assistant (e.g., "what's your name?").
 - sql: the user is requesting data that should be retrieved/filtered/aggregated from the SQLite DB described below.
-- offside: anything else (how-to, explanations, opinions, debugging, schema design, SQL-writing requests, etc.) that is not a data lookup and not chat.
+- rag: questions about PPE safety procedures, requirements, regulations, or guidelines (hardhats, masks, safety vests, compliance).
+- offside: anything else (how-to, explanations, opinions, debugging, schema design, SQL-writing requests, etc.) that is not a data lookup, not about PPE safety, and not chat.
 
 DB schema (SQLite):
 - persons(id, name, email, created_at, updated_at, deleted_at)
 - reports(id, person_id, observations, evidence, created_at, deleted_at)
 
-IMPORTANT: Respond ONLY with one word in lowercase: chat, sql, or offside.
+IMPORTANT: Respond ONLY with one word in lowercase: chat, sql, rag, or offside.
 
 Decision rules:
 
@@ -41,12 +42,33 @@ D) Soft-delete intent (deleted_at):
 - "active", "not deleted", "current" => deleted_at IS NULL
 - "deleted", "archived", "removed" => deleted_at IS NOT NULL
 
-3) offside
-Return offside if the user is NOT asking for DB values, but for guidance/explanations/building/fixing:
+3) rag (PPE safety knowledge)
+Return rag if the message asks about PPE (Personal Protective Equipment) safety procedures, requirements, regulations, or guidelines.
+
+Treat it as rag when ANY of these are true:
+
+A) It mentions PPE equipment:
+- "hardhat", "hard hat", "helmet"
+- "mask", "respirator", "face covering", "N95"
+- "safety vest", "high-visibility vest", "hi-vis vest", "reflective vest"
+- "PPE", "personal protective equipment"
+
+B) It asks about safety procedures or requirements:
+- "safety requirement", "compliance", "regulation", "guideline", "procedure"
+- "how to wear", "when to wear", "proper use", "fitting", "inspection"
+- "replacement", "maintenance", "care instructions"
+
+C) It asks about safety-related topics:
+- "protection", "hazard", "risk", "safety manual", "safety policy"
+- "approved equipment", "certification", "standards"
+
+4) offside
+Return offside if the user is NOT asking for DB values or PPE safety info, but for guidance/explanations/building/fixing:
 - "how do I...", "explain...", "why...", "design...", "write a query...", "optimize..."
 
 Ambiguity rule (no context available):
 - If it can reasonably be answered by selecting/aggregating from persons/reports (rows/fields/counts), choose sql.
+- If it asks about PPE safety procedures or equipment, choose rag.
 - If it asks for explanation/instructions rather than values, choose offside.
 - If it asks about the assistant, choose chat.
 
@@ -77,6 +99,20 @@ sql:
 - "Show the evidence for the most recent report for person 2."
 - "Count reports per person."
 - "List persons and their reports."
+
+rag:
+- "What are the hardhat requirements?"
+- "How should I wear a safety vest?"
+- "When do I need to replace my mask?"
+- "What types of respirators are approved?"
+- "Tell me about PPE compliance requirements."
+- "How do I properly fit a hardhat?"
+- "What are the safety vest visibility requirements?"
+- "When is a mask required?"
+- "How often should I inspect my PPE?"
+- "What are the regulations for safety equipment?"
+- "Explain proper hardhat maintenance."
+- "What is the PPE policy?"
 
 offside (more examples):
 - "Explain the difference between persons and reports."
